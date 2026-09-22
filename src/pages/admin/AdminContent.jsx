@@ -69,9 +69,6 @@ function CompanyManager({ section }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [questionSearch, setQuestionSearch] = useState('');
-  const [questionPageSize, setQuestionPageSize] = useState(10);
-  const [questionPage, setQuestionPage] = useState(1);
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -123,6 +120,9 @@ function CompanyManager({ section }) {
 
 function QuestionManager() {
   const [questions, setQuestions] = useState([]);
+  const [questionSearch, setQuestionSearch] = useState('');
+  const [questionPageSize, setQuestionPageSize] = useState(10);
+  const [questionPage, setQuestionPage] = useState(1);
   const [form, setForm] = useState(emptyQuestion);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
