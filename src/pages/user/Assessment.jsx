@@ -15,7 +15,6 @@ export default function Assessment() {
   const [answers, setAnswers] = useState({}); // question_id -> 'A'|'B'|'C'|'D'
   const [current, setCurrent] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const [durationMinutes, setDurationMinutes] = useState(30);
   const [saving, setSaving] = useState(false);
   const submittingRef = useRef(false);
 
@@ -45,7 +44,6 @@ export default function Assessment() {
       // 3) load the current admin-configured duration
       const { data: settings } = await db('company_info').select('duration_minutes').eq('id', 1).maybeSingle();
       const configuredDuration = Math.max(1, Number(settings?.duration_minutes) || 30);
-      setDurationMinutes(configuredDuration);
 
       // 4) resume an in-progress attempt, or create a new one
       let { data: existing } = await db('assessment_attempts')
@@ -113,7 +111,6 @@ export default function Assessment() {
       const attemptDuration = Math.max(1, Number(existing.duration_minutes) || configuredDuration);
       const elapsedSec = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
       const totalSec = attemptDuration * 60;
-      setDurationMinutes(attemptDuration);
       setSecondsLeft(Math.max(totalSec - elapsedSec, 0));
 
       setLoading(false);
