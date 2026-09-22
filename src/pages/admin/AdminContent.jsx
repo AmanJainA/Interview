@@ -292,17 +292,28 @@ function QuestionManager() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
-            <h6 className="mb-0">Existing Questions ({questions.length})</h6>
-            <div className="d-flex gap-2">
+          <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-nowrap" style={{ overflowX: 'auto' }}>
+            <h6 className="mb-0 text-nowrap">Existing Questions ({questions.length})</h6>
+            <div className="d-flex align-items-center gap-2 flex-nowrap ms-auto">
               <input
                 className="form-control form-control-sm"
-                style={{ width: 280 }}
+                style={{ width: 280, minWidth: 280 }}
                 placeholder="Search questions, options, assessment…"
                 value={questionSearch}
                 onChange={(e) => setQuestionSearch(e.target.value)}
               />
-              <button className="btn btn-sm btn-outline-secondary" onClick={loadQuestions}>Refresh</button>
+              <div className="dropdown">
+                <button className="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" data-bs-toggle="dropdown">
+                  Export
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end">
+                  <li><button className="dropdown-item" onClick={() => navigator.clipboard.writeText(questions.map(q => [q.assessment_type,q.question_text,q.option_a,q.option_b,q.option_c,q.option_d,q.correct_option,q.marks,q.sort_order].join('\t')).join('\n'))}>Export as Copy</button></li>
+                  <li><button className="dropdown-item" onClick={() => window.alert('Use the Results export for Excel/PDF/DOCX. MCQ export is available as Copy here.')}>Export as Excel</button></li>
+                  <li><button className="dropdown-item" onClick={() => window.alert('Use the Results export for Excel/PDF/DOCX. MCQ export is available as Copy here.')}>Export as PDF</button></li>
+                  <li><button className="dropdown-item" onClick={() => window.alert('Use the Results export for Excel/PDF/DOCX. MCQ export is available as Copy here.')}>Export as DOCX</button></li>
+                </ul>
+              </div>
+              <button className="btn btn-sm btn-outline-secondary text-nowrap" onClick={loadQuestions}>Refresh</button>
             </div>
           </div>
           {loading ? <div className="text-muted">Loading questions...</div> : questions.length === 0 ? (
