@@ -16,7 +16,48 @@ const emptyQuestion = {
 
 export default function AdminContent({ section }) {
   if (section === 'questions') return <QuestionManager />;
+  if (section === 'settings') return <AssessmentSettings />;
   return <CompanyManager section={section} />;
+}
+
+function AssessmentSettings() {
+  const { profile } = useAuth();
+  const [minutes, setMinutes] = useState(30);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    db('company_info').select('duration_minutes').eq('id', 1).single().then(({ data, error }) => {
+      if (error) setMessage(error.message);
+      else setMinutes(Number(data?.duration_minutes) || 30);
+      setLoading(false);
+    });
+  }, []);
+
+  async function save() {
+    const value = Number(minutes);
+    if (!Number.isInteger(value) || value < 1 || value > 1440) {
+      setMessage('Enter a whole number between 1 and 1440 minutes.');
+      return;
+    }
+    setSaving(true); setMessage('');
+    const { error } = await rpc('admin_update_assessment_settings', { p_admin_id: profile.id, p_duration_minutes: value });
+    setSaving(false);
+    setMessage(error ? error.message : 'Assessment time updated successfully. New attempts will use this duration.');
+  }
+
+  if (loading) return <div className="text-muted">Loading...</div>;
+  return <div>
+    <div className="mb-4"><h5 className="mb-1">Assessment Timer</h5><div className="text-muted small">Set the time limit for each new assessment attempt.</div></div>
+    <div className="card shadow-sm"><div className="card-body">
+      <label className="form-label fw-semibold">Time Limit (minutes)</label>
+      <input type="number" min="1" max="1440" step="1" className="form-control" value={minutes} onChange={e => setMinutes(e.target.value)} />
+      <div className="form-text">The timer starts when a user creates an attempt. Closing or refreshing the tab does not reset the remaining time.</div>
+      <button className="btn btn-primary mt-3" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Timer'}</button>
+      {message && <div className="alert alert-info mt-3 mb-0">{message}</div>}
+    </div></div>
+  </div>;
 }
 
 function CompanyManager({ section }) {
