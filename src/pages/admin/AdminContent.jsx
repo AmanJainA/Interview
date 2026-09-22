@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { db } from '../../supabaseClient';
+import { db, rpc } from '../../supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 
 const emptyQuestion = {
   assessment_type: 'general',
@@ -25,6 +26,7 @@ function CompanyManager({ section }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const { profile } = useAuth();
 
   useEffect(() => {
     db('company_info').select('about,instructions').eq('id', 1).single().then(({ data, error }) => {
@@ -37,7 +39,7 @@ function CompanyManager({ section }) {
   async function save() {
     setSaving(true);
     setMessage('');
-    const { error } = await db('company_info').update({ [field]: value }).eq('id', 1);
+    const { error } = await rpc('admin_update_company', { p_admin_id: profile.id, p_about: field === 'about' ? value : null, p_instructions: field === 'instructions' ? value : null });
     setSaving(false);
     setMessage(error ? error.message : title + ' updated successfully.');
   }
@@ -80,6 +82,7 @@ function QuestionManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const { profile } = useAuth();
 
   async function loadQuestions() {
     setLoading(true);
@@ -143,8 +146,8 @@ function QuestionManager() {
     };
 
     const result = editingId
-      ? await db('questions').update(payload).eq('id', editingId)
-      : await db('questions').insert(payload);
+      ? await rpc('admin_update_question', { p_admin_id: profile.id, p_id: editingId, ...{ p_assessment_type: payload.assessment_type, p_question_text: payload.question_text, p_option_a: payload.option_a, p_option_b: payload.option_b, p_option_c: payload.option_c, p_option_d: payload.option_d, p_correct_option: payload.correct_option, p_marks: payload.marks, p_sort_order: payload.sort_order } })
+      : await rpc('admin_create_question', { p_admin_id: profile.id, p_assessment_type: payload.assessment_type, p_question_text: payload.question_text, p_option_a: payload.option_a, p_option_b: payload.option_b, p_option_c: payload.option_c, p_option_d: payload.option_d, p_correct_option: payload.correct_option, p_marks: payload.marks, p_sort_order: payload.sort_order });
 
     setSaving(false);
     if (result.error) {
@@ -159,7 +162,7 @@ function QuestionManager() {
 
   async function deleteQuestion(id) {
     if (!window.confirm('Delete this question? Existing answers linked to it will also be removed.')) return;
-    const { error } = await db('questions').delete().eq('id', id);
+    const { error } = await rpc('admin_delete_question', { p_admin_id: profile.id, p_id: id });
     if (error) setMessage(error.message);
     else {
       setMessage('Question deleted successfully.');
