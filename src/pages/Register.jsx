@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', stream: '', location: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', stream: '', location: '', registration_no: '', contact_number: '', gender: '', father_name: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -36,6 +36,24 @@ export default function Register() {
           <div className="mb-3">
             <label className="form-label">Full name</label>
             <input className="form-control" required value={form.name} onChange={set('name')} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Registration No.</label>
+            <input className="form-control" required value={form.registration_no} onChange={set('registration_no')} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Contact Number</label>
+            <input type="tel" className="form-control" required value={form.contact_number} onChange={set('contact_number')} />
+          </div>
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Gender</label>
+              <select className="form-select" required value={form.gender} onChange={set('gender')}><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
+            </div>
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Father's Name</label>
+              <input className="form-control" required value={form.father_name} onChange={set('father_name')} />
+            </div>
           </div>
           <div className="mb-3">
             <label className="form-label">Email</label>
