@@ -118,6 +118,22 @@ export default function Assessment() {
     if (profile) bootstrap();
   }, [profile, navigate]);
 
+  // ---- anti-cheating: leaving the assessment tab/window submits immediately ----
+  useEffect(() => {
+    if (loading || !attempt) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') handleFinalSubmit(true);
+    };
+    const onBlur = () => handleFinalSubmit(true);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', onBlur);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, attempt]);
+
   // ---- timer ----
   useEffect(() => {
     if (loading) return;
