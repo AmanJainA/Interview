@@ -13,6 +13,7 @@ import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminResults from './pages/admin/AdminResults.jsx';
 import AdminContent from './pages/admin/AdminContent.jsx';
 import AdminTracking from './pages/admin/AdminTracking.jsx';
+import AdminUsers from './pages/admin/AdminUsers.jsx';
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="results" element={<AdminResults />} />
         <Route path="tracking" element={<AdminTracking />} />
+        <Route path="users" element={<AdminUsers />} />
         <Route path="about" element={<AdminContent section="about" />} />
         <Route path="instructions" element={<AdminContent section="instructions" />} />
         <Route path="questions" element={<AdminContent section="questions" />} />
