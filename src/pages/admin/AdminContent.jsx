@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 
 const QUESTION_PAGE_OPTIONS = [10, 20, 50, 100, 500];
 import { db, rpc } from '../../supabaseClient';
@@ -126,6 +126,104 @@ function AssessmentSettings() {
   </div>;
 }
 
+function RichTextEditor({ value, onChange, placeholder }) {
+  const editorRef = useRef(null);
+  const [sourceMode, setSourceMode] = useState(false);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    if (editorRef.current.innerHTML !== value) editorRef.current.innerHTML = value || '';
+  }, [value]);
+
+  function exec(command, commandValue = null) {
+    editorRef.current?.focus();
+    document.execCommand(command, false, commandValue);
+    onChange(editorRef.current?.innerHTML || '');
+  }
+
+  function createLink() {
+    const url = window.prompt('Enter URL (https://...):');
+    if (url) exec('createLink', url);
+  }
+
+  function createCallLink() {
+    const number = window.prompt('Enter phone number:', '');
+    if (!number) return;
+    const clean = number.replace(/[^0-9+]/g, '');
+    if (!clean) return;
+    editorRef.current?.focus();
+    const selection = window.getSelection();
+    const selected = selection && selection.toString().trim();
+    if (selected) {
+      exec('createLink', 'tel:' + clean);
+    } else {
+      const label = '📞 Call ' + number;
+      document.execCommand('insertHTML', false, '<a href="tel:' + clean + '">' + label + '</a>');
+      onChange(editorRef.current?.innerHTML || '');
+    }
+  }
+
+  function handleInput() {
+    onChange(editorRef.current?.innerHTML || '');
+  }
+
+  function handleKeyDown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault(); exec('bold');
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+      e.preventDefault(); exec('italic');
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+      e.preventDefault(); exec('underline');
+    }
+  }
+
+  return (
+    <div className="rich-editor border rounded">
+      <div className="rich-editor-toolbar d-flex flex-wrap gap-1 p-2 border-bottom bg-light">
+        <button type="button" className="btn btn-sm btn-outline-secondary fw-bold" title="Bold" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('bold')}>B</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary fst-italic" title="Italic" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('italic')}>I</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary text-decoration-underline" title="Underline" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('underline')}>U</button>
+        <select className="form-select form-select-sm w-auto" title="Heading" defaultValue="" onChange={(e)=>{if(e.target.value) exec('formatBlock', e.target.value); e.target.value='';}}>
+          <option value="">Paragraph / Heading</option>
+          <option value="p">Paragraph</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+        </select>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Bulleted list" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('insertUnorderedList')}>• List</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Numbered list" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('insertOrderedList')}>1. List</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Add link" onMouseDown={(e)=>e.preventDefault()} onClick={createLink}>🔗 Link</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Add clickable phone number" onMouseDown={(e)=>e.preventDefault()} onClick={createCallLink}>📞 Call</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Align left" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('justifyLeft')}>Left</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Center" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('justifyCenter')}>Center</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Align right" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('justifyRight')}>Right</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Undo" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('undo')}>↶</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Redo" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('redo')}>↷</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="Clear formatting" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exec('removeFormat')}>Clear</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary" title="View HTML source" onMouseDown={(e)=>e.preventDefault()} onClick={()=>setSourceMode(v=>!v)}>{sourceMode ? 'Visual' : 'HTML'}</button>
+      </div>
+      {sourceMode ? (
+        <textarea className="form-control border-0 rounded-0" rows={14} value={value} onChange={(e)=>onChange(e.target.value)} />
+      ) : (
+        <div
+          ref={editorRef}
+          className="rich-editor-content p-3"
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder={placeholder}
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+        />
+      )}
+      <div className="small text-muted px-3 py-2 border-top">
+        Supports headings, <b>bold</b>, <i>italic</i>, <u>underline</u>, bullet/numbered lists, links and clickable phone numbers.
+      </div>
+    </div>
+  );
+}
+
 function CompanyManager({ section }) {
   const field = section === 'about' ? 'about' : 'instructions';
   const title = section === 'about' ? 'About the Company' : 'Instructions';
@@ -162,11 +260,9 @@ function CompanyManager({ section }) {
       <div className="card shadow-sm">
         <div className="card-body">
           <label className="form-label fw-semibold">{title}</label>
-          <textarea
-            className="form-control"
-            rows={12}
+          <RichTextEditor
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={setValue}
             placeholder={section === 'about' ? 'Enter information about your company...' : 'Enter assessment instructions...'}
           />
           <div className="d-flex justify-content-between align-items-center mt-3">
