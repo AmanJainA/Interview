@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+
+const QUESTION_PAGE_OPTIONS = [10, 20, 50, 100, 500];
 import { db, rpc } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
@@ -67,6 +69,9 @@ function CompanyManager({ section }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [questionSearch, setQuestionSearch] = useState('');
+  const [questionPageSize, setQuestionPageSize] = useState(10);
+  const [questionPage, setQuestionPage] = useState(1);
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -134,6 +139,20 @@ function QuestionManager() {
   }
 
   useEffect(() => { loadQuestions(); }, []);
+
+  const filteredQuestions = useMemo(() => {
+    const q = questionSearch.trim().toLowerCase();
+    if (!q) return questions;
+    return questions.filter((item) => [
+      item.question_text, item.assessment_type, item.option_a, item.option_b,
+      item.option_c, item.option_d, item.correct_option,
+    ].some((value) => String(value || '').toLowerCase().includes(q)));
+  }, [questions, questionSearch]);
+
+  useEffect(() => setQuestionPage(1), [questionSearch, questionPageSize]);
+
+  const questionTotalPages = Math.max(1, Math.ceil(filteredQuestions.length / questionPageSize));
+  const visibleQuestions = filteredQuestions.slice((questionPage - 1) * questionPageSize, questionPage * questionPageSize);
 
   const nextOrder = useMemo(
     () => questions.reduce((max, q) => Math.max(max, Number(q.sort_order) || 0), 0) + 1,
@@ -273,35 +292,65 @@ function QuestionManager() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
             <h6 className="mb-0">Existing Questions ({questions.length})</h6>
-            <button className="btn btn-sm btn-outline-secondary" onClick={loadQuestions}>Refresh</button>
+            <div className="d-flex gap-2">
+              <input
+                className="form-control form-control-sm"
+                style={{ width: 280 }}
+                placeholder="Search questions, options, assessment…"
+                value={questionSearch}
+                onChange={(e) => setQuestionSearch(e.target.value)}
+              />
+              <button className="btn btn-sm btn-outline-secondary" onClick={loadQuestions}>Refresh</button>
+            </div>
           </div>
           {loading ? <div className="text-muted">Loading questions...</div> : questions.length === 0 ? (
             <div className="text-muted">No questions added yet.</div>
           ) : (
-            <div className="list-group">
-              {questions.map((q, index) => (
-                <div className="list-group-item" key={q.id}>
-                  <div className="d-flex justify-content-between gap-3">
-                    <div>
-                      <div className="fw-semibold">Q{index + 1}. {q.question_text}</div>
-                      <div className="small mt-2">
-                        <div>A. {q.option_a}</div>
-                        <div>B. {q.option_b}</div>
-                        <div>C. {q.option_c}</div>
-                        <div>D. {q.option_d}</div>
-                      </div>
-                      <div className="small text-muted mt-2">Right answer: <strong>{q.correct_option}</strong> · Marks: {q.marks}</div>
-                    </div>
-                    <div className="d-flex gap-2 align-items-start">
-                      <button className="btn btn-sm btn-outline-primary" onClick={() => editQuestion(q)}>Edit</button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={() => deleteQuestion(q.id)}>Delete</button>
-                    </div>
-                  </div>
+            <>
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Assessment</th><th>Question</th><th>Options</th><th>Right Answer</th><th>Marks</th><th>Order</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleQuestions.map((q, index) => (
+                      <tr key={q.id}>
+                        <td>{(questionPage - 1) * questionPageSize + index + 1}</td>
+                        <td className="text-nowrap">{q.assessment_type}</td>
+                        <td style={{ minWidth: 280 }}>{q.question_text}</td>
+                        <td className="small" style={{ minWidth: 260 }}>
+                          <div>A. {q.option_a}</div><div>B. {q.option_b}</div><div>C. {q.option_c}</div><div>D. {q.option_d}</div>
+                        </td>
+                        <td><strong>{q.correct_option}</strong></td>
+                        <td>{q.marks}</td>
+                        <td>{q.sort_order}</td>
+                        <td className="text-nowrap">
+                          <button className="btn btn-sm btn-outline-primary me-1" onClick={() => editQuestion(q)}>Edit</button>
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => deleteQuestion(q.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {visibleQuestions.length === 0 && <tr><td colSpan={8} className="text-center text-muted py-4">No questions found.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <div className="d-flex justify-content-between align-items-center pt-3 mt-3 border-top gap-2 flex-wrap">
+                <div className="small text-muted">Showing {filteredQuestions.length ? (questionPage - 1) * questionPageSize + 1 : 0}–{Math.min(questionPage * questionPageSize, filteredQuestions.length)} of {filteredQuestions.length}</div>
+                <div className="d-flex align-items-center gap-2">
+                  <label className="small text-muted">Rows:</label>
+                  <select className="form-select form-select-sm" style={{ width: 90 }} value={questionPageSize} onChange={(e) => setQuestionPageSize(Number(e.target.value))}>
+                    {QUESTION_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <button className="btn btn-sm btn-outline-secondary" disabled={questionPage <= 1} onClick={() => setQuestionPage((p) => p - 1)}>Previous</button>
+                  <span className="small">Page {questionPage} / {questionTotalPages}</span>
+                  <button className="btn btn-sm btn-outline-secondary" disabled={questionPage >= questionTotalPages} onClick={() => setQuestionPage((p) => p + 1)}>Next</button>
                 </div>
-              ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>
