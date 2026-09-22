@@ -118,21 +118,36 @@ export default function Assessment() {
     if (profile) bootstrap();
   }, [profile, navigate]);
 
-  // ---- anti-cheating: leaving the assessment tab/window submits immediately ----
+  // ---- anti-cheating: switching tabs/windows logs the user out only ----
+  // The assessment attempt is NOT submitted. The saved answers and timer remain
+  // in the database, but the student must sign in again to continue.
   useEffect(() => {
     if (loading || !attempt) return;
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') handleFinalSubmit(true);
+
+    const forceLogout = () => {
+      if (document.visibilityState !== 'hidden' && !document.hasFocus()) {
+        // window blur alone is not reliable enough to treat as a tab switch.
+        return;
+      }
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      localStorage.removeItem('interview_session');
+      localStorage.removeItem('user_session');
+      navigate('/login', {
+        replace: true,
+        state: { reason: 'assessment_tab_switch' }
+      });
     };
-    const onBlur = () => handleFinalSubmit(true);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') forceLogout();
+    };
+
     document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('blur', onBlur);
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('blur', onBlur);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, attempt]);
+  }, [loading, attempt, navigate]);
 
   // ---- timer ----
   useEffect(() => {
