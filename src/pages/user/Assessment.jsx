@@ -75,7 +75,26 @@ export default function Assessment() {
       const elapsedNow = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
       const attemptTotalSec = Math.max(1, Number(existing.duration_minutes) || configuredDuration) * 60;
       if (elapsedNow >= attemptTotalSec) {
-        await db('assessment_attempts').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', existing.id).eq('status', 'in_progress');
+        const { data: expiredAnswers } = await db('user_answers')
+          .select('is_correct, question_id')
+          .eq('attempt_id', existing.id);
+        const correctCount = (expiredAnswers || []).filter((a) => a.is_correct).length;
+        const score = (expiredAnswers || [])
+          .filter((a) => a.is_correct)
+          .reduce((sum, a) => {
+            const q = (qs || []).find((x) => x.id === a.question_id);
+            return sum + (q ? Number(q.marks) : 0);
+          }, 0);
+        const maxScore = (qs || []).reduce((s, q) => s + Number(q.marks), 0) || 1;
+        const percentage = Math.round((score / maxScore) * 10000) / 100;
+        await db('assessment_attempts').update({
+          status: 'submitted',
+          submitted_at: new Date().toISOString(),
+          correct_count: correctCount,
+          score,
+          max_score: maxScore,
+          percentage,
+        }).eq('id', existing.id).eq('status', 'in_progress');
         navigate('/dashboard/thank-you', { replace: true, state: { auto: true } });
         return;
       }
