@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { db, rpc } from '../supabaseClient';
+import { db, rpc, supabase } from '../supabaseClient';
 
 function browser(ua) {
   if (/Edg\//i.test(ua)) return 'Microsoft Edge';
@@ -25,6 +25,28 @@ function portalPath(pathname, search, hash) {
   return p+(search||'')+(hash||'');
 }
 
+// beforeunload can cancel an ordinary async Supabase request.
+// keepalive lets the browser continue the small POST while the page is closing.
+function markOfflineImmediately(userId) {
+  const url=import.meta.env.VITE_SUPABASE_URL;
+  const key=import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if(!url || !key || !userId) return false;
+  try {
+    const body=JSON.stringify({p_user_id:userId});
+    return fetch(url.replace(/\/$/,'')+'/rest/v1/rpc/set_user_offline',{
+      method:'POST',
+      headers:{
+        apikey:key,
+        Authorization:'Bearer '+key,
+        'Content-Type':'application/json'
+      },
+      body,
+      keepalive:true,
+      credentials:'omit'
+    }).catch(()=>{});
+  } catch { return false; }
+}
+
 export default function ActivityTracker({profile}) {
   const location=useLocation();
 
@@ -34,14 +56,21 @@ export default function ActivityTracker({profile}) {
     (async()=>{
       let ip=sessionStorage.getItem('interview_public_ip')||null;
       if(!ip) {
-        try { const res=await fetch('https://api.ipify.org?format=json'); if(res.ok){ip=(await res.json()).ip||null;if(ip)sessionStorage.setItem('interview_public_ip',ip);} } catch {}
+        try {
+          const res=await fetch('https://api.ipify.org?format=json');
+          if(res.ok){ip=(await res.json()).ip||null;if(ip)sessionStorage.setItem('interview_public_ip',ip);}
+        } catch {}
       }
       if(cancelled)return;
       await db('page_activity').insert({
-        user_id:profile.id, username:profile.name||null, email:profile.email||null,
-        mac_address:null, ip_address:ip,
+        user_id:profile.id,
+        username:profile.name||null,
+        email:profile.email||null,
+        mac_address:null,
+        ip_address:ip,
         visited_page:portalPath(location.pathname,location.search,location.hash),
-        browser:browser(navigator.userAgent), os:os(navigator.userAgent)
+        browser:browser(navigator.userAgent),
+        os:os(navigator.userAgent)
       });
       await rpc('set_user_online',{p_user_id:profile.id});
     })();
@@ -50,12 +79,22 @@ export default function ActivityTracker({profile}) {
 
   useEffect(()=>{
     if(!profile?.id)return;
+
     const heartbeat=()=>rpc('set_user_online',{p_user_id:profile.id});
+    const goOffline=()=>markOfflineImmediately(profile.id);
+
     heartbeat();
     const timer=setInterval(heartbeat,30000);
-    const offline=()=>rpc('set_user_offline',{p_user_id:profile.id});
-    window.addEventListener('beforeunload',offline);
-    return()=>{clearInterval(timer);window.removeEventListener('beforeunload',offline);};
+
+    window.addEventListener('beforeunload',goOffline);
+    window.addEventListener('pagehide',goOffline);
+
+    return()=>{
+      clearInterval(timer);
+      window.removeEventListener('beforeunload',goOffline);
+      window.removeEventListener('pagehide',goOffline);
+    };
   },[profile?.id]);
+
   return null;
 }
