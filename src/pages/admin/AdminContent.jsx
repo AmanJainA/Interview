@@ -195,6 +195,7 @@ function QuestionManager() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showImportHelp, setShowImportHelp] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
   const { profile } = useAuth();
 
   async function loadQuestions() {
@@ -369,27 +370,28 @@ function QuestionManager() {
                 value={questionSearch}
                 onChange={(e) => setQuestionSearch(e.target.value)}
               />
-              <div className="dropdown">
-                <button className="btn btn-sm btn-outline-success dropdown-toggle text-nowrap" data-bs-toggle="dropdown" disabled={importing}>
+              <div className="dropdown position-relative">
+                <button type="button" className="btn btn-sm btn-outline-success dropdown-toggle text-nowrap" disabled={importing} onClick={() => setOpenMenu(openMenu === 'import' ? null : 'import')}>
+
                   {importing ? 'Importing...' : 'Import'}
                 </button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  <li><label className="dropdown-item mb-0" style={{cursor:'pointer'}}><input type="file" accept=".csv,.xlsx,.xls" className="d-none" onChange={async(e)=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;setImporting(true);setMessage('');try{const count=await importQuestionsFile(file,profile.id);setMessage(count+' MCQ question(s) imported successfully.');await loadQuestions();}catch(err){setMessage(err.message||'Import failed.')}finally{setImporting(false)}}}/>Upload CSV / Excel</label></li>
+                <ul className={`dropdown-menu dropdown-menu-end ${openMenu === 'import' ? 'show' : ''}`} style={{ right: 0, left: 'auto' }}>
+                  <li><label className="dropdown-item mb-0" style={{cursor:'pointer'}}><input type="file" accept=".csv,.xlsx,.xls" className="d-none" onChange={async(e)=>{const file=e.target.files?.[0];e.target.value='';setOpenMenu(null);if(!file)return;setImporting(true);setMessage('');try{const count=await importQuestionsFile(file,profile.id);setMessage(count+' MCQ question(s) imported successfully.');await loadQuestions();}catch(err){setMessage(err.message||'Import failed.')}finally{setImporting(false)}}}/>Upload CSV / Excel</label></li>
                   <li><hr className="dropdown-divider"/></li>
-                  <li><button className="dropdown-item" onClick={async()=>{try{await downloadQuestionTemplate('csv')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download CSV Format</button></li>
-                  <li><button className="dropdown-item" onClick={async()=>{try{await downloadQuestionTemplate('excel')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download Excel Format</button></li>
-                  <li><button className="dropdown-item" onClick={()=>setShowImportHelp(true)}>View Format / Instructions</button></li>
+                  <li><button className="dropdown-item" onClick={async()=>{setOpenMenu(null);try{await downloadQuestionTemplate('csv')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download CSV Format</button></li>
+                  <li><button className="dropdown-item" onClick={async()=>{setOpenMenu(null);try{await downloadQuestionTemplate('excel')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download Excel Format</button></li>
+                  <li><button className="dropdown-item" onClick={()=>{setOpenMenu(null);setShowImportHelp(true)}}>View Format / Instructions</button></li>
                 </ul>
               </div>
-              <div className="dropdown">
-                <button className="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" data-bs-toggle="dropdown">
+              <div className="dropdown position-relative">
+                <button type="button" className="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" onClick={() => setOpenMenu(openMenu === 'export' ? null : 'export')}>
                   Export
                 </button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('copy',filteredQuestions)}finally{setExporting(false)}}}>Export as Copy</button></li>
-                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('excel',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as Excel</button></li>
-                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('pdf',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as PDF</button></li>
-                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('docx',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as DOCX</button></li>
+                <ul className={`dropdown-menu dropdown-menu-end ${openMenu === 'export' ? 'show' : ''}`} style={{ right: 0, left: 'auto' }}>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setOpenMenu(null);setExporting(true);try{await exportQuestions('copy',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as Copy</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setOpenMenu(null);setExporting(true);try{await exportQuestions('excel',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as Excel</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setOpenMenu(null);setExporting(true);try{await exportQuestions('pdf',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as PDF</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setOpenMenu(null);setExporting(true);try{await exportQuestions('docx',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as DOCX</button></li>
                 </ul>
               </div>
               <button className="btn btn-sm btn-outline-secondary text-nowrap" onClick={loadQuestions}>Refresh</button>
