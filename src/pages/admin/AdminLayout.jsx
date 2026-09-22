@@ -21,6 +21,7 @@ export default function AdminLayout() {
         links={[
           { to: '/admin', label: 'Dashboard', end: true },
           { to: '/admin/results', label: 'Results' },
+          { to: '/admin/tracking', label: 'Manage Tracking' },
           { to: '/admin/about', label: 'About Company' },
           { to: '/admin/instructions', label: 'Instructions' },
           { to: '/admin/questions', label: 'MCQ Questions' },
