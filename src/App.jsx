@@ -11,6 +11,7 @@ import ThankYou from './pages/user/ThankYou.jsx';
 import AdminLayout from './pages/admin/AdminLayout.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminResults from './pages/admin/AdminResults.jsx';
+import AdminContent from './pages/admin/AdminContent.jsx';
 
 export default function App() {
   return (
@@ -44,6 +45,9 @@ export default function App() {
       >
         <Route index element={<AdminDashboard />} />
         <Route path="results" element={<AdminResults />} />
+        <Route path="about" element={<AdminContent section="about" />} />
+        <Route path="instructions" element={<AdminContent section="instructions" />} />
+        <Route path="questions" element={<AdminContent section="questions" />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
