@@ -9,6 +9,57 @@ const QUESTION_EXPORT_HEADERS = ['#','Assessment','Question','Option A','Option 
 function questionExportRows(list) { return list.map((q,i)=>[i+1,q.assessment_type||'',q.question_text||'',q.option_a||'',q.option_b||'',q.option_c||'',q.option_d||'',q.correct_option||'',q.marks??'',q.sort_order??'']); }
 function loadExportScript(src, name) { if (window[name]) return Promise.resolve(window[name]); return new Promise((resolve,reject)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>resolve(window[name]); s.onerror=reject; document.head.appendChild(s); }); }
 function downloadQuestionBlob(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+const QUESTION_IMPORT_HEADERS = ['Assessment','Question','Option A','Option B','Option C','Option D','Right Answer','Marks','Order'];
+const QUESTION_IMPORT_SAMPLE = [
+  ['general','What is 2 + 2?','3','4','5','6','B','1','1'],
+  ['general','Which language is used for web page structure?','CSS','HTML','PHP','SQL','B','1','2'],
+];
+function csvEscape(value) { const s = String(value ?? ''); return /[",\\n\\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function questionTemplateCsv() { return [QUESTION_IMPORT_HEADERS, ...QUESTION_IMPORT_SAMPLE].map(row => row.map(csvEscape).join(',')).join('\\r\\n'); }
+function downloadTextFile(textContent, name, type='text/csv;charset=utf-8') { const blob = new Blob([textContent], {type}); downloadQuestionBlob(blob, name); }
+async function downloadQuestionTemplate(type) {
+  if (type === 'csv') { downloadTextFile(questionTemplateCsv(), 'mcq-question-template.csv'); return; }
+  const XLSX = await loadExportScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','XLSX');
+  const ws = XLSX.utils.aoa_to_sheet([QUESTION_IMPORT_HEADERS, ...QUESTION_IMPORT_SAMPLE]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'MCQ Questions');
+  XLSX.writeFile(wb, 'mcq-question-template.xlsx');
+}
+function parseCsv(textContent) {
+  const rows=[]; let row=[], cell='', quoted=false;
+  for(let i=0;i<textContent.length;i++){ const ch=textContent[i], next=textContent[i+1];
+    if(quoted){ if(ch==='"' && next==='"'){cell+='"';i++;} else if(ch==='"'){quoted=false;} else cell+=ch; }
+    else if(ch==='"' && cell===''){quoted=true;} else if(ch===','){row.push(cell);cell='';} else if(ch==='\\n'){row.push(cell);rows.push(row);row=[];cell='';} else if(ch!=='\\r'){cell+=ch;}
+  }
+  if(cell!=='' || row.length){row.push(cell);rows.push(row);} return rows.filter(r=>r.some(v=>String(v).trim()!==''));
+}
+async function parseQuestionImportFile(file) {
+  const ext = file.name.toLowerCase().split('.').pop();
+  if(ext==='csv'){ return parseCsv(await file.text()); }
+  const XLSX = await loadExportScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','XLSX');
+  const data = await file.arrayBuffer(); const wb = XLSX.read(data,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+}
+function normalizeImportHeader(value){return String(value??'').trim().toLowerCase().replace(/\\s+/g,' ');}
+async function importQuestionsFile(file, adminId) {
+  const rows=await parseQuestionImportFile(file); if(!rows.length) throw new Error('The selected file is empty.');
+  const headers=rows[0].map(normalizeImportHeader); const expected=QUESTION_IMPORT_HEADERS.map(normalizeImportHeader);
+  if(headers.length<expected.length || expected.some((h,i)=>headers[i]!==h)) throw new Error('Invalid format. Please use the MCQ import template so the columns stay in this order: '+QUESTION_IMPORT_HEADERS.join(', '));
+  const dataRows=rows.slice(1).filter(r=>r.some(v=>String(v??'').trim()!=='')); if(!dataRows.length) throw new Error('No question rows found in the file.');
+  const errors=[];
+  for(let i=0;i<dataRows.length;i++){
+    const r=dataRows[i], line=i+2; const [assessment,question,a,b,c,d,right,marks,order]=QUESTION_IMPORT_HEADERS.map((_,idx)=>String(r[idx]??'').trim());
+    if(!question||!a||!b||!c||!d) { errors.push('Row '+line+': Question and all four options are required.'); continue; }
+    const answer=right.toUpperCase(); if(!['A','B','C','D'].includes(answer)){errors.push('Row '+line+': Right Answer must be A, B, C or D.');continue;}
+    const markValue=marks===''?1:Number(marks), orderValue=order===''?0:Number(order);
+    if(!Number.isFinite(markValue)||markValue<0){errors.push('Row '+line+': Marks must be a valid number.');continue;}
+    if(!Number.isInteger(orderValue)||orderValue<0){errors.push('Row '+line+': Order must be a whole number.');continue;}
+    const result=await rpc('admin_create_question',{p_admin_id:adminId,p_assessment_type:assessment||'general',p_question_text:question,p_option_a:a,p_option_b:b,p_option_c:c,p_option_d:d,p_correct_option:answer,p_marks:markValue,p_sort_order:orderValue});
+    if(result.error) errors.push('Row '+line+': '+result.error.message);
+  }
+  if(errors.length) throw new Error('Import completed with '+errors.length+' issue(s).\\n\\n'+errors.slice(0,8).join('\\n')+(errors.length>8?'\\n...':'') );
+  return dataRows.length;
+}
+
 async function exportQuestions(type,list){
  const rows=questionExportRows(list);
  if(type==='copy'){await navigator.clipboard.writeText([QUESTION_EXPORT_HEADERS,...rows].map(r=>r.join('\\t')).join('\\n'));window.alert('MCQ questions copied to clipboard.');return;}
@@ -142,6 +193,8 @@ function QuestionManager() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [showImportHelp, setShowImportHelp] = useState(false);
   const { profile } = useAuth();
 
   async function loadQuestions() {
@@ -317,6 +370,18 @@ function QuestionManager() {
                 onChange={(e) => setQuestionSearch(e.target.value)}
               />
               <div className="dropdown">
+                <button className="btn btn-sm btn-outline-success dropdown-toggle text-nowrap" data-bs-toggle="dropdown" disabled={importing}>
+                  {importing ? 'Importing...' : 'Import'}
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end">
+                  <li><label className="dropdown-item mb-0" style={{cursor:'pointer'}}><input type="file" accept=".csv,.xlsx,.xls" className="d-none" onChange={async(e)=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;setImporting(true);setMessage('');try{const count=await importQuestionsFile(file,profile.id);setMessage(count+' MCQ question(s) imported successfully.');await loadQuestions();}catch(err){setMessage(err.message||'Import failed.')}finally{setImporting(false)}}}/>Upload CSV / Excel</label></li>
+                  <li><hr className="dropdown-divider"/></li>
+                  <li><button className="dropdown-item" onClick={async()=>{try{await downloadQuestionTemplate('csv')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download CSV Format</button></li>
+                  <li><button className="dropdown-item" onClick={async()=>{try{await downloadQuestionTemplate('excel')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download Excel Format</button></li>
+                  <li><button className="dropdown-item" onClick={()=>setShowImportHelp(true)}>View Format / Instructions</button></li>
+                </ul>
+              </div>
+              <div className="dropdown">
                 <button className="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" data-bs-toggle="dropdown">
                   Export
                 </button>
@@ -330,7 +395,13 @@ function QuestionManager() {
               <button className="btn btn-sm btn-outline-secondary text-nowrap" onClick={loadQuestions}>Refresh</button>
             </div>
           </div>
-          {loading ? <div className="text-muted">Loading questions...</div> : questions.length === 0 ? (
+          {showImportHelp && <div className="alert alert-light border mb-3">
+            <div className="d-flex justify-content-between align-items-center"><strong>MCQ Import Format</strong><button type="button" className="btn-close" onClick={()=>setShowImportHelp(false)} /></div>
+            <div className="small text-muted mt-2">Upload a CSV, XLSX or XLS file. Keep the first row exactly in this order:</div>
+            <code className="d-block small mt-2">Assessment | Question | Option A | Option B | Option C | Option D | Right Answer | Marks | Order</code>
+            <ul className="small mb-0 mt-2"><li><strong>Right Answer:</strong> A, B, C or D.</li><li><strong>Marks:</strong> number; blank defaults to 1.</li><li><strong>Order:</strong> whole number; blank defaults to 0.</li><li>Each following row becomes one MCQ question in the question bank.</li></ul>
+          </div>}
+                    {loading ? <div className="text-muted">Loading questions...</div> : questions.length === 0 ? (
             <div className="text-muted">No questions added yet.</div>
           ) : (
             <>
