@@ -360,9 +360,9 @@ function QuestionManager() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-nowrap" style={{ overflowX: 'auto' }}>
+          <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-nowrap" style={{ overflow: 'visible', position: 'relative', zIndex: 20 }}>
             <h6 className="mb-0 text-nowrap">Existing Questions ({questions.length})</h6>
-            <div className="d-flex align-items-center gap-2 flex-nowrap ms-auto">
+            <div className="d-flex align-items-center gap-2 flex-nowrap ms-auto" style={{ overflow: 'visible' }}>
               <input
                 className="form-control form-control-sm"
                 style={{ width: 280, minWidth: 280 }}
@@ -375,7 +375,7 @@ function QuestionManager() {
 
                   {importing ? 'Importing...' : 'Import'}
                 </button>
-                <ul className={`dropdown-menu dropdown-menu-end ${openMenu === 'import' ? 'show' : ''}`} style={{ right: 0, left: 'auto' }}>
+                <ul className={`dropdown-menu dropdown-menu-end ${openMenu === 'import' ? 'show' : ''}`} style={{ right: 0, left: 'auto', zIndex: 2000 }}>
                   <li><label className="dropdown-item mb-0" style={{cursor:'pointer'}}><input type="file" accept=".csv,.xlsx,.xls" className="d-none" onChange={async(e)=>{const file=e.target.files?.[0];e.target.value='';setOpenMenu(null);if(!file)return;setImporting(true);setMessage('');try{const count=await importQuestionsFile(file,profile.id);setMessage(count+' MCQ question(s) imported successfully.');await loadQuestions();}catch(err){setMessage(err.message||'Import failed.')}finally{setImporting(false)}}}/>Upload CSV / Excel</label></li>
                   <li><hr className="dropdown-divider"/></li>
                   <li><button className="dropdown-item" onClick={async()=>{setOpenMenu(null);try{await downloadQuestionTemplate('csv')}catch(e){window.alert(e.message||'Template download failed.')}}}>Download CSV Format</button></li>
