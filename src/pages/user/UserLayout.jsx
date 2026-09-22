@@ -1,6 +1,7 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import ActivityTracker from '../../components/ActivityTracker';
 
 export default function UserLayout() {
   const { profile, logout } = useAuth();
@@ -12,7 +13,7 @@ export default function UserLayout() {
   }
 
   return (
-    <div className="d-flex flex-column flex-md-row">
+    <div className="d-flex flex-column flex-md-row"><ActivityTracker profile={profile} />
       <Sidebar
         title={profile?.name}
         subtitle={profile?.email}
