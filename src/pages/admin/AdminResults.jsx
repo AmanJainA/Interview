@@ -6,6 +6,7 @@ export default function AdminResults() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [answers, setAnswers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     db('assessment_attempts')
@@ -13,7 +14,7 @@ export default function AdminResults() {
         'id, assessment_type, total_questions, correct_count, score, max_score, percentage, status, started_at, submitted_at, users:user_id(name, email, stream, location)'
       )
       .order('started_at', { ascending: false })
-      .then(({ data }) => setRows(data || []));
+      .then(({ data }) => { setRows(data || []); setLoading(false); });
   }, []);
 
   async function openDetail(attempt) {
@@ -26,7 +27,9 @@ export default function AdminResults() {
 
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
-    return (
+    if (loading) return <div className="text-muted">Loading results...</div>;
+
+  return (
       r.users?.name?.toLowerCase().includes(q) ||
       r.users?.email?.toLowerCase().includes(q) ||
       r.assessment_type?.toLowerCase().includes(q)
@@ -55,6 +58,7 @@ export default function AdminResults() {
                 <th>Stream / Location</th>
                 <th>Assessment</th>
                 <th>Status</th>
+                <th>Right Answers</th>
                 <th>Score</th>
                 <th>%</th>
                 <th></th>
@@ -74,8 +78,9 @@ export default function AdminResults() {
                       {r.status}
                     </span>
                   </td>
-                  <td>{r.correct_count}/{r.total_questions}</td>
-                  <td>{r.status === 'submitted' ? `${r.percentage}%` : '—'}</td>
+                  <td><strong>{r.correct_count || 0}</strong> / {r.total_questions || 0}</td>
+                  <td>{r.status === 'submitted' ? `${r.score ?? 0} / ${r.max_score ?? 0}` : '—'}</td>
+                  <td>{r.status === 'submitted' ? `${r.percentage ?? 0}%` : '—'}</td>
                   <td>
                     <button className="btn btn-sm btn-outline-primary" onClick={() => openDetail(r)}>
                       View
@@ -85,7 +90,7 @@ export default function AdminResults() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
+                  <td colSpan={8} className="text-center text-muted py-4">
                     No results found.
                   </td>
                 </tr>
@@ -107,7 +112,7 @@ export default function AdminResults() {
               </div>
               <div className="modal-body">
                 <p className="mb-3">
-                  Score: <strong>{selected.correct_count}/{selected.total_questions}</strong> ({selected.percentage}%)
+                  Right Answers: <strong>{selected.correct_count || 0} / {selected.total_questions || 0}</strong><br />Score: <strong>{selected.score ?? 0} / {selected.max_score ?? 0}</strong> ({selected.percentage ?? 0}%)
                 </p>
                 <ol className="list-group list-group-numbered">
                   {answers.map((a, i) => (
