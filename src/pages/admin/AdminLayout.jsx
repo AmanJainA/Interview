@@ -21,6 +21,9 @@ export default function AdminLayout() {
         links={[
           { to: '/admin', label: 'Dashboard', end: true },
           { to: '/admin/results', label: 'Results' },
+          { to: '/admin/about', label: 'About Company' },
+          { to: '/admin/instructions', label: 'Instructions' },
+          { to: '/admin/questions', label: 'MCQ Questions' },
         ]}
       />
       <div className="flex-grow-1 p-3 p-md-4" style={{ minWidth: 0 }}>
