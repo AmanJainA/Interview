@@ -12,16 +12,14 @@ export default function Assessment() {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [attempt, setAttempt] = useState(null);
-  const [answers, setAnswers] = useState({}); // question_id -> 'A'|'B'|'C'|'D'
+  const [answers, setAnswers] = useState({});
   const [current, setCurrent] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [saving, setSaving] = useState(false);
   const submittingRef = useRef(false);
 
-  // ---- bootstrap: block re-entry, resume or create the attempt ----
   useEffect(() => {
     async function bootstrap() {
-      // 1) already submitted? never let them back into the assessment
       const { data: submitted } = await db('assessment_attempts')
         .select('id')
         .eq('user_id', profile.id)
@@ -34,18 +32,15 @@ export default function Assessment() {
         return;
       }
 
-      // 2) load the question bank
       const { data: qs } = await db('questions')
         .select('*')
         .eq('assessment_type', ASSESSMENT_TYPE)
         .order('sort_order', { ascending: true });
       setQuestions(qs || []);
 
-      // 3) load the current admin-configured duration
       const { data: settings } = await db('company_info').select('duration_minutes').eq('id', 1).maybeSingle();
       const configuredDuration = Math.max(1, Number(settings?.duration_minutes) || 30);
 
-      // 4) resume an in-progress attempt, or create a new one
       let { data: existing } = await db('assessment_attempts')
         .select('*')
         .eq('user_id', profile.id)
@@ -70,6 +65,7 @@ export default function Assessment() {
         }
         existing = created;
       }
+
       const elapsedNow = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
       const attemptTotalSec = Math.max(1, Number(existing.duration_minutes) || configuredDuration) * 60;
       if (elapsedNow >= attemptTotalSec) {
@@ -99,7 +95,6 @@ export default function Assessment() {
 
       setAttempt(existing);
 
-      // 4) load any answers already saved (crash recovery)
       const { data: savedAnswers } = await db('user_answers')
         .select('question_id, selected_option')
         .eq('attempt_id', existing.id);
@@ -107,7 +102,6 @@ export default function Assessment() {
       (savedAnswers || []).forEach((a) => (map[a.question_id] = a.selected_option));
       setAnswers(map);
 
-      // 6) work out remaining time from the attempt's stored duration, so refresh/close/reopen never resets it
       const attemptDuration = Math.max(1, Number(existing.duration_minutes) || configuredDuration);
       const elapsedSec = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
       const totalSec = attemptDuration * 60;
@@ -118,17 +112,12 @@ export default function Assessment() {
     if (profile) bootstrap();
   }, [profile, navigate]);
 
-  // ---- anti-cheating: switching tabs/windows logs the user out only ----
-  // The assessment attempt is NOT submitted. The saved answers and timer remain
-  // in the database, but the student must sign in again to continue.
+  // Switching tabs/windows logs the user out only. The attempt is not submitted.
   useEffect(() => {
     if (loading || !attempt) return;
 
     const forceLogout = () => {
-      if (document.visibilityState !== 'hidden' && !document.hasFocus()) {
-        // window blur alone is not reliable enough to treat as a tab switch.
-        return;
-      }
+      if (document.visibilityState !== 'hidden' && !document.hasFocus()) return;
       if (submittingRef.current) return;
       submittingRef.current = true;
       localStorage.removeItem('interview_session');
@@ -144,12 +133,9 @@ export default function Assessment() {
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [loading, attempt, navigate]);
 
-  // ---- timer ----
   useEffect(() => {
     if (loading) return;
     if (secondsLeft <= 0) {
@@ -158,13 +144,11 @@ export default function Assessment() {
     }
     const t = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft, loading]);
 
   const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const seconds = String(secondsLeft % 60).padStart(2, '0');
 
-  // ---- save one question's answer immediately (crash-safe) ----
   async function saveAnswer(questionId, option) {
     setAnswers((prev) => ({ ...prev, [questionId]: option }));
     setSaving(true);
@@ -182,7 +166,6 @@ export default function Assessment() {
     setSaving(false);
   }
 
-  // ---- final submit: score everything and close the attempt ----
   const handleFinalSubmit = useCallback(
     async (auto = false) => {
       if (submittingRef.current || !attempt) return;
@@ -225,7 +208,14 @@ export default function Assessment() {
   const answeredCount = Object.keys(answers).length;
 
   return (
-    <div>
+    <div
+      className="assessment-page"
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+      onSelectStart={(e) => e.preventDefault()}
+      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+    >
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h5 className="mb-0">Assessment</h5>
         <span className={`badge fs-6 ${secondsLeft < 60 ? 'bg-danger' : 'bg-dark'}`}>
@@ -258,18 +248,10 @@ export default function Assessment() {
           ))}
 
           <div className="d-flex justify-content-between mt-4">
-            <button
-              className="btn btn-outline-secondary"
-              disabled={current === 0}
-              onClick={() => setCurrent((c) => c - 1)}
-            >
+            <button className="btn btn-outline-secondary" disabled={current === 0} onClick={() => setCurrent((c) => c - 1)}>
               Previous
             </button>
-            <button
-              className="btn btn-outline-primary"
-              disabled={current === questions.length - 1}
-              onClick={() => setCurrent((c) => c + 1)}
-            >
+            <button className="btn btn-outline-primary" disabled={current === questions.length - 1} onClick={() => setCurrent((c) => c + 1)}>
               Next
             </button>
           </div>
@@ -284,13 +266,7 @@ export default function Assessment() {
           {questions.map((qq, idx) => (
             <button
               key={qq.id}
-              className={`btn qnav-btn ${
-                idx === current
-                  ? 'btn-primary'
-                  : answers[qq.id]
-                  ? 'btn-success text-white'
-                  : 'btn-outline-secondary'
-              }`}
+              className={`btn qnav-btn ${idx === current ? 'btn-primary' : answers[qq.id] ? 'btn-success text-white' : 'btn-outline-secondary'}`}
               onClick={() => setCurrent(idx)}
             >
               {idx + 1}
