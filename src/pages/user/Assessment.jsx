@@ -4,7 +4,6 @@ import { db } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
 const ASSESSMENT_TYPE = 'general'; // change if you run more than one assessment
-const DURATION_MINUTES = 30;
 
 export default function Assessment() {
   const { profile } = useAuth();
@@ -16,6 +15,7 @@ export default function Assessment() {
   const [answers, setAnswers] = useState({}); // question_id -> 'A'|'B'|'C'|'D'
   const [current, setCurrent] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [durationMinutes, setDurationMinutes] = useState(30);
   const [saving, setSaving] = useState(false);
   const submittingRef = useRef(false);
 
@@ -42,7 +42,12 @@ export default function Assessment() {
         .order('sort_order', { ascending: true });
       setQuestions(qs || []);
 
-      // 3) resume an in-progress attempt, or create a new one
+      // 3) load the current admin-configured duration
+      const { data: settings } = await db('company_info').select('duration_minutes').eq('id', 1).maybeSingle();
+      const configuredDuration = Math.max(1, Number(settings?.duration_minutes) || 30);
+      setDurationMinutes(configuredDuration);
+
+      // 4) resume an in-progress attempt, or create a new one
       let { data: existing } = await db('assessment_attempts')
         .select('*')
         .eq('user_id', profile.id)
@@ -57,6 +62,7 @@ export default function Assessment() {
             assessment_type: ASSESSMENT_TYPE,
             total_questions: (qs || []).length,
             max_score: (qs || []).reduce((s, q) => s + Number(q.marks), 0),
+            duration_minutes: configuredDuration,
           })
           .select()
           .single();
@@ -66,6 +72,14 @@ export default function Assessment() {
         }
         existing = created;
       }
+      const elapsedNow = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
+      const attemptTotalSec = Math.max(1, Number(existing.duration_minutes) || configuredDuration) * 60;
+      if (elapsedNow >= attemptTotalSec) {
+        await db('assessment_attempts').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', existing.id).eq('status', 'in_progress');
+        navigate('/dashboard/thank-you', { replace: true, state: { auto: true } });
+        return;
+      }
+
       setAttempt(existing);
 
       // 4) load any answers already saved (crash recovery)
@@ -76,9 +90,11 @@ export default function Assessment() {
       (savedAnswers || []).forEach((a) => (map[a.question_id] = a.selected_option));
       setAnswers(map);
 
-      // 5) work out remaining time from started_at, so a refresh doesn't reset the clock
+      // 6) work out remaining time from the attempt's stored duration, so refresh/close/reopen never resets it
+      const attemptDuration = Math.max(1, Number(existing.duration_minutes) || configuredDuration);
       const elapsedSec = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
-      const totalSec = DURATION_MINUTES * 60;
+      const totalSec = attemptDuration * 60;
+      setDurationMinutes(attemptDuration);
       setSecondsLeft(Math.max(totalSec - elapsedSec, 0));
 
       setLoading(false);
