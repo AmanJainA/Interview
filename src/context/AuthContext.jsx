@@ -65,7 +65,7 @@ export function AuthProvider({ children }) {
   async function refreshProfile() {
     if (!profile) return;
     const { data } = await db('users')
-      .select('id, name, email, stream, location, usertype, created_date')
+      .select('id, name, email, stream, location, registration_no, contact_number, gender, father_name, usertype, created_date')
       .eq('id', profile.id)
       .single();
     if (data) setProfile(data);
