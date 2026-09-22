@@ -199,10 +199,10 @@ export default function AdminResults() {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+      <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-nowrap">
         <h5 className="mb-0">Results</h5>
         <div className="d-flex gap-2 flex-wrap">
-          <input className="form-control" style={{ maxWidth: 280 }} placeholder="Search by name, email, stream, assessment…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="form-control" style={{ width: 280, minWidth: 280 }} placeholder="Search by name, email, stream, assessment…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div className="dropdown">
             <button className="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" disabled={!!exporting}>
               {exporting ? 'Exporting…' : 'Export'}
