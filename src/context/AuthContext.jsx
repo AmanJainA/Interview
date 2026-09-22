@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 const STORAGE_KEY = 'interview_portal_session';
 
 export function AuthProvider({ children }) {
-  const [profile, setProfile] = useState(null); // { id, name, email, stream, location, usertype, created_date }
+  const [profile, setProfile] = useState(null); // { id, name, email, stream, location, registration_no, contact_number, gender, father_name, usertype, created_date }
   const [loading, setLoading] = useState(true);
 
   // Restore session from localStorage on first load, then re-check
@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
         try {
           const saved = JSON.parse(raw);
           const { data, error } = await db('users')
-            .select('id, name, email, stream, location, usertype, created_date')
+            .select('id, name, email, stream, location, registration_no, contact_number, gender, father_name, usertype, created_date')
             .eq('id', saved.id)
             .single();
           if (!error && data) setProfile(data);
@@ -31,13 +31,17 @@ export function AuthProvider({ children }) {
     restore();
   }, []);
 
-  async function register({ name, email, password, stream, location }) {
+  async function register({ name, email, password, stream, location, registration_no, contact_number, gender, father_name }) {
     const { data, error } = await rpc('register_user', {
       p_name: name,
       p_email: email,
       p_password: password,
       p_stream: stream || null,
       p_location: location || null,
+      p_registration_no: registration_no || null,
+      p_contact_number: contact_number || null,
+      p_gender: gender || null,
+      p_father_name: father_name || null,
     });
     if (error) throw error;
     return data?.[0];
