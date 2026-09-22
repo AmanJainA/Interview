@@ -4,6 +4,19 @@ const QUESTION_PAGE_OPTIONS = [10, 20, 50, 100, 500];
 import { db, rpc } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
+
+const QUESTION_EXPORT_HEADERS = ['#','Assessment','Question','Option A','Option B','Option C','Option D','Right Answer','Marks','Order'];
+function questionExportRows(list) { return list.map((q,i)=>[i+1,q.assessment_type||'',q.question_text||'',q.option_a||'',q.option_b||'',q.option_c||'',q.option_d||'',q.correct_option||'',q.marks??'',q.sort_order??'']); }
+function loadExportScript(src, name) { if (window[name]) return Promise.resolve(window[name]); return new Promise((resolve,reject)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>resolve(window[name]); s.onerror=reject; document.head.appendChild(s); }); }
+function downloadQuestionBlob(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+async function exportQuestions(type,list){
+ const rows=questionExportRows(list);
+ if(type==='copy'){await navigator.clipboard.writeText([QUESTION_EXPORT_HEADERS,...rows].map(r=>r.join('\\t')).join('\\n'));window.alert('MCQ questions copied to clipboard.');return;}
+ if(type==='excel'){const XLSX=await loadExportScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','XLSX');const ws=XLSX.utils.aoa_to_sheet([QUESTION_EXPORT_HEADERS,...rows]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'MCQ Questions');XLSX.writeFile(wb,'mcq-questions.xlsx');return;}
+ if(type==='pdf'){const j=await loadExportScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js','jspdf');await loadExportScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js','jspdf');const doc=new j.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});doc.setFontSize(14);doc.text('MCQ Question Bank',14,15);doc.autoTable({startY:20,head:[QUESTION_EXPORT_HEADERS],body:rows,styles:{fontSize:6},headStyles:{fontSize:6}});doc.save('mcq-questions.pdf');return;}
+ if(type==='docx'){const d=await loadExportScript('https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js','docx');const {Document,Packer,Paragraph,Table,TableRow,TableCell,TextRun,WidthType}=d;const tr=[new TableRow({children:QUESTION_EXPORT_HEADERS.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))}),...rows.map(row=>new TableRow({children:row.map(v=>new TableCell({children:[new Paragraph(String(v))]}))}))];const doc=new Document({sections:[{children:[new Paragraph({children:[new TextRun({text:'MCQ Question Bank',bold:true,size:28})]}),new Table({rows:tr,width:{size:100,type:WidthType.PERCENTAGE}})]}]});downloadQuestionBlob(await Packer.toBlob(doc),'mcq-questions.docx');}
+}
+
 const emptyQuestion = {
   assessment_type: 'general',
   question_text: '',
@@ -128,6 +141,7 @@ function QuestionManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [exporting, setExporting] = useState(false);
   const { profile } = useAuth();
 
   async function loadQuestions() {
@@ -307,10 +321,10 @@ function QuestionManager() {
                   Export
                 </button>
                 <ul className="dropdown-menu dropdown-menu-end">
-                  <li><button className="dropdown-item" onClick={() => navigator.clipboard.writeText(questions.map(q => [q.assessment_type,q.question_text,q.option_a,q.option_b,q.option_c,q.option_d,q.correct_option,q.marks,q.sort_order].join('\t')).join('\n'))}>Export as Copy</button></li>
-                  <li><button className="dropdown-item" onClick={() => window.alert('Use the Results export for Excel/PDF/DOCX. MCQ export is available as Copy here.')}>Export as Excel</button></li>
-                  <li><button className="dropdown-item" onClick={() => window.alert('Use the Results export for Excel/PDF/DOCX. MCQ export is available as Copy here.')}>Export as PDF</button></li>
-                  <li><button className="dropdown-item" onClick={() => window.alert('Use the Results export for Excel/PDF/DOCX. MCQ export is available as Copy here.')}>Export as DOCX</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('copy',filteredQuestions)}finally{setExporting(false)}}}>Export as Copy</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('excel',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as Excel</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('pdf',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as PDF</button></li>
+                  <li><button className="dropdown-item" disabled={exporting} onClick={async()=>{setExporting(true);try{await exportQuestions('docx',filteredQuestions)}catch(e){window.alert(e.message||'Export failed.')}finally{setExporting(false)}}}>Export as DOCX</button></li>
                 </ul>
               </div>
               <button className="btn btn-sm btn-outline-secondary text-nowrap" onClick={loadQuestions}>Refresh</button>
