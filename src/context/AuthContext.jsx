@@ -58,6 +58,14 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
+    // Mark the user offline before clearing the profile/session.
+    if (profile?.id) {
+      try {
+        await rpc('set_user_offline', { p_user_id: profile.id });
+      } catch {
+        // The session is still cleared even if the status update fails.
+      }
+    }
     localStorage.removeItem(STORAGE_KEY);
     setProfile(null);
   }
