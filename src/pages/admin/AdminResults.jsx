@@ -1,6 +1,42 @@
 import { useEffect, useState } from 'react';
 import { db } from '../../supabaseClient';
 
+function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+}
+
+function formatTimeTaken(startedAt, submittedAt) {
+  if (!startedAt) return '—';
+
+  const start = new Date(startedAt).getTime();
+  const end = submittedAt ? new Date(submittedAt).getTime() : Date.now();
+
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return '—';
+
+  const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+}
+
 export default function AdminResults() {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState('');
@@ -14,7 +50,10 @@ export default function AdminResults() {
         'id, assessment_type, total_questions, correct_count, score, max_score, percentage, status, started_at, submitted_at, users:user_id(name, email, stream, location)'
       )
       .order('started_at', { ascending: false })
-      .then(({ data }) => { setRows(data || []); setLoading(false); });
+      .then(({ data }) => {
+        setRows(data || []);
+        setLoading(false);
+      });
   }, []);
 
   async function openDetail(attempt) {
@@ -27,14 +66,15 @@ export default function AdminResults() {
 
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
-    if (loading) return <div className="text-muted">Loading results...</div>;
 
-  return (
+    return (
       r.users?.name?.toLowerCase().includes(q) ||
       r.users?.email?.toLowerCase().includes(q) ||
       r.assessment_type?.toLowerCase().includes(q)
     );
   });
+
+  if (loading) return <div className="text-muted">Loading results...</div>;
 
   return (
     <div>
@@ -57,6 +97,9 @@ export default function AdminResults() {
                 <th>User</th>
                 <th>Stream / Location</th>
                 <th>Assessment</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Time Taken</th>
                 <th>Status</th>
                 <th>Right Answers</th>
                 <th>Score</th>
@@ -73,6 +116,11 @@ export default function AdminResults() {
                   </td>
                   <td className="small">{r.users?.stream} · {r.users?.location}</td>
                   <td>{r.assessment_type}</td>
+                  <td className="small text-nowrap">{formatDateTime(r.started_at)}</td>
+                  <td className="small text-nowrap">{formatDateTime(r.submitted_at)}</td>
+                  <td className="small text-nowrap">
+                    {formatTimeTaken(r.started_at, r.submitted_at)}
+                  </td>
                   <td>
                     <span className={`badge ${r.status === 'submitted' ? 'bg-success' : 'bg-secondary'}`}>
                       {r.status}
@@ -90,7 +138,7 @@ export default function AdminResults() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center text-muted py-4">
+                  <td colSpan={11} className="text-center text-muted py-4">
                     No results found.
                   </td>
                 </tr>
@@ -111,9 +159,26 @@ export default function AdminResults() {
                 <button className="btn-close" onClick={() => setSelected(null)}></button>
               </div>
               <div className="modal-body">
+                <div className="row g-3 mb-3">
+                  <div className="col-md-4">
+                    <div className="small text-muted">Start Time</div>
+                    <strong>{formatDateTime(selected.started_at)}</strong>
+                  </div>
+                  <div className="col-md-4">
+                    <div className="small text-muted">End Time</div>
+                    <strong>{formatDateTime(selected.submitted_at)}</strong>
+                  </div>
+                  <div className="col-md-4">
+                    <div className="small text-muted">Time Taken</div>
+                    <strong>{formatTimeTaken(selected.started_at, selected.submitted_at)}</strong>
+                  </div>
+                </div>
+
                 <p className="mb-3">
-                  Right Answers: <strong>{selected.correct_count || 0} / {selected.total_questions || 0}</strong><br />Score: <strong>{selected.score ?? 0} / {selected.max_score ?? 0}</strong> ({selected.percentage ?? 0}%)
+                  Right Answers: <strong>{selected.correct_count || 0} / {selected.total_questions || 0}</strong><br />
+                  Score: <strong>{selected.score ?? 0} / {selected.max_score ?? 0}</strong> ({selected.percentage ?? 0}%)
                 </p>
+
                 <ol className="list-group list-group-numbered">
                   {answers.map((a, i) => (
                     <li key={i} className="list-group-item">
