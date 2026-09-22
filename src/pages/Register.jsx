@@ -33,17 +33,29 @@ export default function Register() {
         <h4 className="mb-3">Create your account</h4>
         {error && <div className="alert alert-danger py-2">{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label">Full name</label>
-            <input className="form-control" required value={form.name} onChange={set('name')} />
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Registration No.</label>
+              <input className="form-control" required value={form.registration_no} onChange={set('registration_no')} />
+            </div>
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Full name</label>
+              <input className="form-control" required value={form.name} onChange={set('name')} />
+            </div>
+          </div>
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Email</label>
+              <input type="email" className="form-control" required value={form.email} onChange={set('email')} />
+            </div>
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Contact Number</label>
+              <input type="tel" className="form-control" required value={form.contact_number} onChange={set('contact_number')} />
+            </div>
           </div>
           <div className="mb-3">
-            <label className="form-label">Registration No.</label>
-            <input className="form-control" required value={form.registration_no} onChange={set('registration_no')} />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Contact Number</label>
-            <input type="tel" className="form-control" required value={form.contact_number} onChange={set('contact_number')} />
+            <label className="form-label">Password</label>
+            <input type="password" className="form-control" required minLength={6} value={form.password} onChange={set('password')} />
           </div>
           <div className="row">
             <div className="col-md-6 mb-3">
@@ -55,21 +67,14 @@ export default function Register() {
               <input className="form-control" required value={form.father_name} onChange={set('father_name')} />
             </div>
           </div>
-          <div className="mb-3">
-            <label className="form-label">Email</label>
-            <input type="email" className="form-control" required value={form.email} onChange={set('email')} />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Password</label>
-            <input type="password" className="form-control" required minLength={6} value={form.password} onChange={set('password')} />
-          </div>
+          
           <div className="row">
             <div className="col-md-6 mb-3">
               <label className="form-label">Stream</label>
               <input className="form-control" value={form.stream} onChange={set('stream')} />
             </div>
             <div className="col-md-6 mb-3">
-              <label className="form-label">Location</label>
+              <label className="form-label">Current Location</label>
               <input className="form-control" value={form.location} onChange={set('location')} />
             </div>
           </div>
