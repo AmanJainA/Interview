@@ -24,6 +24,7 @@ export default function AdminLayout() {
           { to: '/admin/about', label: 'About Company' },
           { to: '/admin/instructions', label: 'Instructions' },
           { to: '/admin/questions', label: 'MCQ Questions' },
+          { to: '/admin/settings', label: 'Assessment Timer' },
         ]}
       />
       <div className="flex-grow-1 p-3 p-md-4" style={{ minWidth: 0 }}>
