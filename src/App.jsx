@@ -48,6 +48,7 @@ export default function App() {
         <Route path="about" element={<AdminContent section="about" />} />
         <Route path="instructions" element={<AdminContent section="instructions" />} />
         <Route path="questions" element={<AdminContent section="questions" />} />
+        <Route path="settings" element={<AdminContent section="settings" />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
